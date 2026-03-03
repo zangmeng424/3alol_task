@@ -1,6 +1,8 @@
+import json
 import random
 import time
 import requests
+from bs4 import BeautifulSoup
 from loguru import logger
 
 
@@ -21,7 +23,7 @@ class _3alol:
     def get_csrf(self):
         response = self.sess.get('https://3a.lol/session/csrf').json()
         self.csrf = response.get('csrf')
-        logger.debug(f"csrf:{self.csrf}")
+        logger.debug(f"csrf:{self.csrf[:12]}...")
 
     def get_hp(self):
         headers = {
@@ -65,13 +67,14 @@ class _3alol:
 
         if login_error := response.get("error"):
             logger.error(login_error)
+            return False
         else:
-            logger.success(f"login success")
+            return True
 
-    def post_actions(self,tie_id):
+    def post_actions(self,topic_id):
         """
         点赞
-        :param tie_id: 帖子id
+        :param topic_id: 帖子id
         :return: 状态码（200成功,429点赞达到上限）
         """
         headers = {
@@ -79,18 +82,17 @@ class _3alol:
             'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'discourse-logged-in': 'true',
             'origin': 'https://3a.lol',
-            'referer': f'https://3a.lol/t/topic/{tie_id}',
+            'referer': f'https://3a.lol/t/topic/{topic_id}',
             'x-csrf-token': self.csrf,
             **self.sess.headers
         }
         data = {
-            'id': tie_id,
+            'id': topic_id,
             'post_action_type_id': '2',
             'flag_topic': 'false',
         }
         try:
             response = self.sess.post('https://3a.lol/post_actions',headers=headers,  data=data)
-            logger.info(f"点赞ID:{tie_id}  {response.status_code}")
             return response.status_code
         except:
             logger.error("点赞失败")
@@ -150,7 +152,7 @@ class _3alol:
 
     def send_activation_email(self,username):
         """
-        发送验证邮件
+        发送验证邮件(疑似存在问题，未达到预期响应)
         :param username:用户名
         :return:
         """
@@ -219,10 +221,10 @@ class _3alol:
     def post(self,title:str,raw:str,tags:str,draft_key:str = None,featured_link:str = "", category:str = "4") -> bool | dict[str]:
         """
         发布一个帖子
-        :param title: 帖子标题
+        :param title: 话题标题
         :param raw: 内容
         :param tags: 标签（英文逗号分隔）
-        :param draft_key: 目标（topic_XXX,向XXX发送一条帖子留言，new_topic_时间戳，发布一条新帖子，携带标题）
+        :param draft_key: 值为空发布话题，反之向某话题下回复（topic_XXX,向XXX发送一条帖子留言，new_topic_时间戳，发布一条新话题，携带标题），
         :param featured_link:
         :param category: 类别（日常交流，单机游戏）
         :return: 新帖子信息
@@ -276,9 +278,129 @@ class _3alol:
 
         return False
 
+    def get_posts(self,posts_id:str | int):
+        """
+        获取话题下的帖子内容
+        :param post_id: 话题id
+        :return:
+        """
+        #["post_stream"]["posts"]下为回复帖子，
+        #["title"]话题标题
+        headers = {
+            **self.sess.headers,
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'upgrade-insecure-requests': '1',
+        }
+
+        response = self.sess.get(f'https://3a.lol/t/topic/{posts_id}', headers=headers)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # 使用CSS选择器
+            div = soup.find('div', id='data-preloaded')
+            if div:
+                value = div.get('data-preloaded')
+                info=json.loads(value)[f"topic_{posts_id}"]
+                logger.debug(info)
+                return info
+
+        return False
+
+    def get_summary(self,username:str = ""):
+        """
+        获取用户个人数据（["user_summary"]中包含个人数据）
+        username为空则获取当前类中已登录用户的信息
+        :param username: 用户名
+        :return:
+        """
+        if not username:
+            headers = {
+                **self.sess.headers,
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'upgrade-insecure-requests': '1',
+            }
+            response = self.sess.get(f'https://3a.lol',headers = headers)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # 使用CSS选择器
+                div = soup.find('div', id='data-preloaded')
+                if div:
+                    value = div.get('data-preloaded')
+                    username = json.loads(value).get("currentUser").get("username")
+                    if not username:
+                        return False
+
+        self.get_csrf()
+
+        headers = {
+            **self.sess.headers,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'discourse-logged-in': 'true',
+            'discourse-track-view': 'true',
+            'referer': f'https://3a.lol/u/{username}/activity',
+            'x-csrf-token': self.csrf,
+        }
+
+        response = self.sess.get(f'https://3a.lol/u/{username}/summary.json',  headers=headers)
+        if response.status_code == 200:
+            return response.json()
+
+        return False
+
+    def read_topics_timings(self,topic_id:str,topic_time:str="60000",timings:list[int]=[1]):
+        """
+        帖子阅读接口
+        :param topic_id: 话题id
+        :param topic_time:阅读话题的总时间（每次不得超过60000）
+        :param topic_time:指定话题阅读的帖子
+        :return:
+        """
+
+        self.get_csrf()
+        headers = {
+            **self.sess.headers,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'discourse-logged-in': 'true',
+            'discourse-present': 'true',
+            'discourse-track-view': 'true',
+            'discourse-track-view-topic-id': topic_id,
+            'referer': 'https://3a.lol',
+            'x-csrf-token': self.csrf,
+        }
+
+        params = {
+            'track_visit': 'true',
+            'forceLoad': 'true',
+        }
+
+        self.sess.get(f'https://3a.lol/t/{topic_id}/1.json', params=params, headers=headers)
 
 
-def read_userinfo(file_path="userinfo.txt"):
+        headers = {
+            **self.sess.headers,
+            'discourse-background': 'true',
+            'discourse-logged-in': 'true',
+            'x-csrf-token': self.csrf,
+            'x-silence-logger': 'true',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        }
+
+        data = {
+            'topic_time': topic_time,
+            'topic_id': topic_id,
+        }
+        for timing in timings:
+            data.update({f'timings[{timing}]':topic_time})
+
+        response = self.sess.post('https://3a.lol/topics/timings',headers=headers, data=data)
+        if response.status_code == 200:
+            return True
+        else:
+            return False
+
+def read_userinfo():
+    file_path = "userinfo.txt"
     """从文件读取账号密码，每行格式为: 账号|密码"""
     accounts = []
     try:
