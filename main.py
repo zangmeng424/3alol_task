@@ -23,11 +23,11 @@ def main():
             lol = _3alol()
 
             #登录
-            logger.info(f"{account["username"]} 开始登陆")
+            logger.info(f"{account['username']} 开始登陆")
             if lol.login(account["username"], account["password"]):
-                logger.success(f"{account["username"]} 登陆成功")
+                logger.success(f"{account['username']} 登陆成功")
             else:
-                logger.error(f"{account["username"]} 登陆失败")
+                logger.error(f"{account['username']} 登陆失败")
                 continue
 
             #获取最新话题
@@ -49,7 +49,7 @@ def main():
                     selected_posts = random.sample(posts_list, random.randint(1,min(3,len(posts_list))))
                     for post in selected_posts:
                         lol.post_actions(post["id"])
-                        logger.success(f"{post["id"]} 点赞完成")
+                        logger.success(f"{post['id']} 点赞完成")
                 else:
                     logger.warning("目标话题获取帖子失败，点赞取消")
 
