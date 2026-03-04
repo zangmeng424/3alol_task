@@ -29,29 +29,36 @@ def main():
             else:
                 logger.error(f"{account['username']} 登陆失败")
                 continue
+            try:
+                #获取最新话题
+                topics_list = lol.get_latest()
+                for topic in topics_list[:10]:
+                    topic_id = topic["id"]
+                    logger.info(f"{topic_id} 开始阅读")
 
-            #获取最新话题
-            topics_list = lol.get_latest()
-            for topic in topics_list[:10]:
-                topic_id = topic["id"]
-                logger.info(f"{topic_id} 开始阅读")
+                    # 遍历10次，每次选择一个话题中的三个帖子刷时间
+                    for post_start in range(30)[::3]:
+                        lol.read_topics_timings(topic_id = str(topic_id),topic_time = str(random.randint(50000,60000)),timings = [timing for timing in range(1,topic["posts_count"]+1)][min(topic["posts_count"]-1,post_start):post_start+3])
+                        time.sleep(0.2)
+                    logger.success(f"{topic_id} 阅读完成")
 
-                # 遍历10次，每次选择一个话题中的三个帖子刷时间
-                for post_start in range(30)[::3]:
-                    lol.read_topics_timings(topic_id = str(topic_id),topic_time = str(random.randint(50000,60000)),timings = [timing for timing in range(1,topic["posts_count"]+1)][min(topic["posts_count"]-1,post_start):post_start+3])
-                    time.sleep(0.2)
-                logger.success(f"{topic_id} 阅读完成")
+                    #点赞
+                    posts = lol.get_posts(topic_id)
+                    if posts:
+                        posts_list = posts["post_stream"]["posts"]
+                        selected_posts = random.sample(posts_list, random.randint(1,min(3,len(posts_list))))
+                        for post in selected_posts:
+                            lol.post_actions(post["id"])
+                            logger.success(f"{post['id']} 点赞完成")
+                    else:
+                        logger.warning("目标话题获取帖子失败，点赞取消")
 
-                #点赞
-                posts = lol.get_posts(topic_id)
-                if posts:
-                    posts_list = posts["post_stream"]["posts"]
-                    selected_posts = random.sample(posts_list, random.randint(1,min(3,len(posts_list))))
-                    for post in selected_posts:
-                        lol.post_actions(post["id"])
-                        logger.success(f"{post['id']} 点赞完成")
-                else:
-                    logger.warning("目标话题获取帖子失败，点赞取消")
+                # 跳过重试
+                break
+
+            except Exception as e:
+                logger.error(f"任务失败{e}")
+
 
 
 if __name__ == "__main__":
