@@ -274,14 +274,14 @@ class _3alol:
         if response.status_code == 200:
             if posts_content := response.json().get("post"):
                 logger.info(f"帖子发布成功")
-                return posts_content
+                return json.loads(posts_content)
 
         return False
 
-    def get_posts(self,posts_id:str | int):
+    def get_posts(self,topic_id:str | int):
         """
         获取话题下的帖子内容
-        :param post_id: 话题id
+        :param topic_id: 话题id
         :return:
         """
         #["post_stream"]["posts"]下为回复帖子，
@@ -292,7 +292,7 @@ class _3alol:
             'upgrade-insecure-requests': '1',
         }
 
-        response = self.sess.get(f'https://3a.lol/t/topic/{posts_id}', headers=headers)
+        response = self.sess.get(f'https://3a.lol/t/topic/{topic_id}', headers=headers)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -300,9 +300,9 @@ class _3alol:
             div = soup.find('div', id='data-preloaded')
             if div:
                 value = div.get('data-preloaded')
-                info=json.loads(value)[f"topic_{posts_id}"]
+                info=json.loads(value)[f"topic_{topic_id}"]
                 logger.debug(info)
-                return info
+                return json.loads(info)
 
         return False
 
@@ -398,6 +398,26 @@ class _3alol:
             return True
         else:
             return False
+
+    def get_latest(self):
+        """
+        获取最新话题列表
+        """
+        headers = {
+            **self.sess.headers,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'referer': 'https://3a.lol/latest',
+            'x-csrf-token': self.csrf,
+        }
+
+        response = self.sess.get('https://3a.lol/latest.json',  headers=headers)
+        if response.status_code == 200:
+            return response.json().get("topic_list").get("topics")
+        else:
+            return False
+
+
+
 
 def read_userinfo():
     file_path = "userinfo.txt"
