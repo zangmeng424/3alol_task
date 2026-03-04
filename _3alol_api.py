@@ -71,7 +71,7 @@ class _3alol:
         else:
             return True
 
-    def post_actions(self,topic_id):
+    def post_like(self,topic_id):
         """
         点赞
         :param topic_id: 帖子id

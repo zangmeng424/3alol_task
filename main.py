@@ -48,7 +48,7 @@ def main():
                         posts_list = posts["post_stream"]["posts"]
                         selected_posts = random.sample(posts_list, random.randint(1,min(3,len(posts_list))))
                         for post in selected_posts:
-                            lol.post_actions(post["id"])
+                            lol.post_like(post["id"])
                             logger.success(f"{post['id']} 点赞完成")
                     else:
                         logger.warning("目标话题获取帖子失败，点赞取消")
