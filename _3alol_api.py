@@ -67,7 +67,7 @@ class _3alol:
 
         if login_error := response.get("error"):
             logger.error(login_error)
-            return False
+            return False,login_error
         else:
             return True
 
@@ -107,7 +107,6 @@ class _3alol:
         :return:
         """
         self.get_csrf()
-        logger.debug(self.sess.cookies)
         logger.info(f"注册信息：email:{email_address},username:{username},password:{password}")
 
         hp_json = {}

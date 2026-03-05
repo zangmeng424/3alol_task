@@ -24,10 +24,15 @@ def main():
 
             #登录
             logger.info(f"{account['username']} 开始登陆")
-            if lol.login(account["username"], account["password"]):
+            status,error = lol.login(account["username"], account["password"])
+            if status:
                 logger.success(f"{account['username']} 登陆成功")
             else:
                 logger.error(f"{account['username']} 登陆失败")
+                #疑似IP被拉黑后会有连坐机制，强制结束任务保后续账号
+                if "密码不正确" in error or "IP" in error:
+                    logger.error(f"登录响应异常，疑似IP被拉黑，已强制结束")
+                    exit(1)
                 continue
             try:
                 #获取最新话题
