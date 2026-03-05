@@ -6,8 +6,31 @@ import sys
 import time
 
 from loguru import logger
-from _3alol_api import read_userinfo,_3alol
+from _3alol_api import read_userinfo, _3alol, read_cookie, save_cookie
 
+
+def login(lol,account):
+    if cookie := read_cookie(account["username"]):
+        logger.info(f"{account['username']} 使用cookie登录")
+        if lol.login_with_cookie(cookie):
+            logger.success(f"{account['username']} 登陆成功")
+            return True
+        else:
+            logger.error(f"{account['username']} cookie登录失败")
+
+    logger.info(f"{account['username']} 正常登录")
+    status, error = lol.login(account["username"], account["password"])
+    if status:
+        logger.success(f"{account['username']} 登陆成功")
+        save_cookie(account["username"], error)
+        return True
+    else:
+        logger.error(f"{account['username']} 登陆失败")
+        # 疑似IP被拉黑后会有连坐机制，强制结束任务保后续账号
+        if "密码不正确" in error or "IP" in error:
+            logger.error(f"登录响应异常，疑似IP被拉黑，已强制结束")
+            exit(1)
+        return False
 
 
 def main():
@@ -23,17 +46,9 @@ def main():
             lol = _3alol()
 
             #登录
-            logger.info(f"{account['username']} 开始登陆")
-            status,error = lol.login(account["username"], account["password"])
-            if status:
-                logger.success(f"{account['username']} 登陆成功")
-            else:
-                logger.error(f"{account['username']} 登陆失败")
-                #疑似IP被拉黑后会有连坐机制，强制结束任务保后续账号
-                if "密码不正确" in error or "IP" in error:
-                    logger.error(f"登录响应异常，疑似IP被拉黑，已强制结束")
-                    exit(1)
+            if not login(lol, account):
                 continue
+
             try:
                 #获取最新话题
                 topics_list = lol.get_latest()
