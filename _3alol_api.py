@@ -69,7 +69,7 @@ class _3alol:
             logger.error(login_error)
             return False,login_error
         else:
-            return True
+            return True,""
 
     def post_like(self,topic_id):
         """
