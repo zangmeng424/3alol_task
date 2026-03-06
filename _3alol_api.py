@@ -443,7 +443,7 @@ class _3alol:
 
         response = self.sess.get('https://3a.lol/latest.json',  headers=headers)
         if response.status_code == 200:
-            return json.loads(response.json().get("topic_list", {})).get("topics")
+            return response.json().get("topic_list").get("topics")
         else:
             return False
 
