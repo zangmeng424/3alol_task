@@ -4,12 +4,26 @@
 import random
 import sys
 import time
-
 from loguru import logger
 from _3alol_api import read_userinfo, _3alol, read_cookie, save_cookie
 
 
-def login(lol,account):
+# 回复模板
+REPLY_TEMPLATES = [
+    "感谢分享，已收藏！",
+    "楼主牛逼，这就去试试",
+    "666，正好想玩这个",
+    "有空玩玩",
+    "好帖帮顶！",
+    "感谢大佬分享",
+    "已入手，感谢推荐",
+    "看着不错，试试",
+    "这游戏我也在玩，确实不错",
+    "感谢分享，正好缺这个",
+]
+
+
+def login(lol: _3alol,account: dict) -> bool:
     if cookie := read_cookie(account["username"]):
         logger.info(f"{account['username']} 使用cookie登录")
         if lol.login_with_cookie(cookie):
@@ -30,6 +44,76 @@ def login(lol,account):
         if "密码不正确" in error or "IP" in error:
             logger.error(f"登录响应异常，疑似IP被拉黑，已强制结束")
             exit(1)
+        return False
+
+
+def reply_topic(lol: _3alol,topic_id: str) -> bool:
+    """
+    自动回复话题帖子
+    """
+    try:
+        logger.info("开始话题发帖留言")
+        data = lol.get_posts(topic_id)
+        if not data:
+            return False
+
+        # 提取关键信息
+        title = data.get("title", "")
+        posts = data.get("post_stream", {}).get("posts", [])
+        tags = data.get("tags", [])
+        posts_count = len(posts)
+
+        logger.info(f"话题：{title[:20]}... | 帖子数：{posts_count} | 标签：{tags}")
+
+        # 判断：帖子数 > 5
+        if posts_count <= 5:
+            logger.warning("回复贴过少")
+            return False
+
+        if True in [post["yours"] for post in posts]:
+            logger.warning("本话题已回复过")
+            return False
+
+        # 判断：是否为游戏分享
+        text = title + " " + " ".join(tags)
+        is_game = any(k in text for k in ["游戏分享", "单机游戏"]) and (
+                any(k in text for k in ["游戏", "steam", "Steam", "单机"]) or
+                ("【" in title and "】" in title) or
+                any(k in text.lower() for k in ["game", "dlc", "mod"])
+        )
+
+        if not is_game:
+            logger.warning("非游戏分享贴")
+            return False
+
+        # 生成回复（避免与前 5 条回复重复）
+        existing = [p.get("raw", "") for p in posts[1:6]]
+        reply = random.choice(REPLY_TEMPLATES)
+
+        # 简单去重
+        for _ in range(3):
+            if not any(reply in e or e in reply for e in existing):
+                break
+            reply = random.choice(REPLY_TEMPLATES)
+
+        logger.info(f"生成回复：{reply}")
+
+        lol.get_categories()
+
+        result = lol.post(
+            title="",
+            raw=reply,
+            tags="",
+            draft_key=topic_id,  # 设置为话题 ID 表示回复
+            category=data.get("category_id", "5"),
+        )
+
+        if result:
+            return True
+        else:
+            return False
+
+    except Exception as e:
         return False
 
 
@@ -72,6 +156,14 @@ def main():
                             logger.success(f"{post['id']} 点赞完成")
                     else:
                         logger.warning("目标话题获取帖子失败，点赞取消")
+
+                    #回复
+                    if random.random() <= 0.4:
+                        if reply_topic(lol, topic_id):
+                            logger.success("贴子发布成功")
+                        else:
+                            logger.error("贴子发布失败")
+
 
                 # 跳过重试
                 break
