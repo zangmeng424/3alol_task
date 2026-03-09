@@ -295,16 +295,36 @@ class _3alol:
         if draft_key:
             data['draft_key'] = f"topic_{draft_key}"
             data.update({'featured_link':featured_link})
+            data.update({'topic_id':draft_key})
         else:
             data.update({'title':title})
 
         response = self.sess.post('https://3a.lol/posts',  headers=headers, data=data)
         if response.status_code == 200:
             if posts_content := response.json().get("post"):
-                logger.info(f"帖子发布成功")
-                return json.loads(posts_content)
+                return posts_content
 
         return False
+
+    def get_categories(self) -> list[dict]:
+        """
+        获取分区列表
+        :return:
+        """
+        self.get_csrf()
+
+        headers = {
+            **self.sess.headers,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'discourse-logged-in': 'true',
+            'discourse-track-view': 'true',
+            'referer': 'https://3a.lol/',
+            'x-csrf-token': self.csrf,
+        }
+
+        response = self.sess.get('https://3a.lol/categories_and_latest',  headers=headers).json()
+
+        return response.get("category_list").get("categories",[])
 
     def get_posts(self,topic_id:str | int) -> bool | dict:
         """
