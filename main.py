@@ -62,9 +62,6 @@ def reply_topic(lol: _3alol,topic_id: str) -> bool:
         posts = data.get("post_stream", {}).get("posts", [])
         tags = data.get("tags", [])
         posts_count = len(posts)
-
-        logger.info(f"话题：{title[:20]}... | 帖子数：{posts_count} | 标签：{tags}")
-
         # 判断：帖子数 > 5
         if posts_count <= 5:
             logger.warning("回复贴过少")
@@ -138,6 +135,16 @@ def main():
                 topics_list = lol.get_latest()
                 for topic in topics_list[:10]:
                     topic_id = topic["id"]
+                    data = lol.get_posts(topic_id)
+                    if data:
+                        # 提取关键信息
+                        title = data.get("title", "")
+                        posts = data.get("post_stream", {}).get("posts", [])
+                        tags = data.get("tags", [])
+                        posts_count = len(posts)
+
+                        logger.info(f"标题：{title[:20]}... | 帖子数：{posts_count} | 标签：{tags}")
+
                     logger.info(f"{topic_id} 开始阅读")
 
                     # 遍历10次，每次选择一个话题中的三个帖子刷时间
@@ -176,6 +183,9 @@ def main():
 if __name__ == "__main__":
 
     logger.remove()  # 移除所有默认handler
-    logger.add(sys.stderr, level="INFO")  # 只显示INFO及以上级别
-
+    logger.add(
+        sys.stderr,
+        level="INFO",
+        format="{time:MM-DD HH:mm:ss} | {level:<8} | - {message}"
+    )
     main()
