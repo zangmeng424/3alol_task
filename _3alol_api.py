@@ -22,9 +22,15 @@ class _3alol:
         self.sess.get("https://3a.lol")
 
     def get_csrf(self):
-        response = self.sess.get('https://3a.lol/session/csrf').json()
-        self.csrf = response.get('csrf')
-        logger.debug(f"csrf:{self.csrf[:12]}...")
+        for _ in range(3):
+            try:
+                response = self.sess.get('https://3a.lol/session/csrf').json()
+                self.csrf = response.get('csrf')
+                logger.debug(f"csrf:{self.csrf[:12]}...")
+                break
+            except:
+                logger.error(f"csrf获取失败")
+                time.sleep(1)
 
     def get_hp(self) -> dict | None:
         headers = {
