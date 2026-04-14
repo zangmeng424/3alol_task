@@ -22,6 +22,139 @@ REPLY_TEMPLATES = [
     "感谢分享，正好缺这个",
 ]
 
+# 等级晋升条件
+LEVEL_REQUIREMENTS = {
+    0: {
+        "metrics": [
+            {"key": "topics_entered", "target": 5, "source": "summary", "label": "已读主题数"},
+            {"key": "posts_read_count", "target": 30, "source": "summary", "label": "已读帖子数"},
+            {"key": "time_read", "target": 600, "source": "summary", "label": "阅读时长(秒)"},
+        ],
+    },
+    1: {
+        "metrics": [
+            {"key": "days_visited", "target": 15, "source": "summary", "label": "访问天数"},
+            {"key": "topics_entered", "target": 20, "source": "summary", "label": "已读主题数"},
+            {"key": "posts_read_count", "target": 100, "source": "summary", "label": "已读帖子数"},
+            {"key": "time_read", "target": 3600, "source": "summary", "label": "阅读时长(秒)"},
+            {"key": "replied_topics", "target": 3, "source": "activity", "label": "回复话题数"},
+            {"key": "likes_given", "target": 1, "source": "summary", "label": "已点赞数"},
+            {"key": "likes_received", "target": 1, "source": "summary", "label": "获赞数"},
+        ],
+    },
+    2: {
+        "metrics": [
+            {"key": "days_visited", "target": 50, "source": "directory", "label": "访问天数(最近100天)"},
+            {"key": "likes_given", "target": 30, "source": "directory", "label": "已点赞数(最近100天)"},
+            {"key": "likes_received", "target": 20, "source": "directory", "label": "获赞数(最近100天)"},
+            {"key": "topics_entered", "target": 20000, "source": "summary", "label": "累计已读主题(25%)"},
+            {"key": "posts_read_count", "target": 500, "source": "summary", "label": "累计已读帖子(25%)"},
+        ],
+    },
+    3: {
+        "metrics": [
+            {"key": "days_visited", "target": 50, "source": "directory", "label": "访问天数(最近100天)"},
+            {"key": "likes_given", "target": 30, "source": "directory", "label": "已点赞数(最近100天)"},
+            {"key": "likes_received", "target": 20, "source": "directory", "label": "获赞数(最近100天)"},
+            {"key": "topics_entered", "target": 20000, "source": "summary", "label": "累计已读主题(25%)"},
+            {"key": "posts_read_count", "target": 500, "source": "summary", "label": "累计已读帖子(25%)"},
+        ],
+    },
+    4: {
+        "metrics": [],
+    },
+}
+
+class UserLevelTask:
+    """用户等级信息获取和显示任务"""
+
+    def __init__(self, lol: _3alol, account: dict):
+        self.lol = lol
+        self.account = account
+        self.username = account["username"]
+        self.level_info = {}
+        self.completed_tasks = {}
+
+    def get_user_level_info(self) -> bool:
+        """获取用户等级信息"""
+        try:
+            self.level_info = self.lol.get_user_level_info(self.username)
+            if not self.level_info:
+                logger.error(f"获取用户 {self.username} 等级信息失败")
+                return False
+
+            logger.success(f"获取用户 {self.username} 等级信息成功")
+            return True
+        except Exception as e:
+            logger.error(f"获取用户 {self.username} 等级信息时发生错误: {e}")
+            return False
+
+    def calculate_task_progress(self):
+        """计算任务进度"""
+        if not self.level_info:
+            return
+
+        user = self.level_info.get("user", {})
+        trust_level = user.get("trust_level", 0)
+        summary = self.level_info.get("summary", {})
+        directory = self.level_info.get("directory", {})
+
+         # 获取当前等级的晋升条件
+        requirements = LEVEL_REQUIREMENTS.get(trust_level, {})
+        metrics = requirements.get("metrics", [])
+
+        # 计算每个指标的进度
+        self.completed_tasks = {}
+        for metric in metrics:
+            key = metric["key"]
+            target = metric["target"]
+            source = metric["source"]
+
+            # 获取当前值
+            if source == "summary":
+                current = summary.get(key, 0)
+            elif source == "directory":
+                current = directory.get(key, 0) if directory else 0
+            elif source == "activity":
+                # 活动数据需要额外获取，这里简化处理
+                current = 0
+
+            # 计算进度
+            progress = f"{current}/{target}"
+            self.completed_tasks[metric["label"]] = progress
+
+    def display_user_info(self):
+        """显示用户信息"""
+        if not self.level_info:
+            logger.warning("没有用户信息可显示")
+            return
+
+        user = self.level_info.get("user", {})
+        trust_level = user.get("trust_level", 0)
+        username = user.get("username", self.username)
+
+        # 第一行：用户名和等级
+        user_level_line = f"{username} {' ' * 10} TL{trust_level} -> TL{trust_level if trust_level >= 3 else trust_level + 1}"
+        logger.info("=" * 30)
+        logger.info(user_level_line)
+        logger.info("-" * 30)
+
+        # 显示任务进度表格
+        if self.completed_tasks:
+            # 获取所有任务的标签和进度
+            tasks = list(self.completed_tasks.items())
+
+            # 使用固定宽度确保对齐
+            label_width = 13  # 标签列固定宽度
+
+            # 打印表格
+            for label, progress in tasks:
+                logger.info(f"{label:<{label_width}} | {progress}")
+            logger.info("=" * 30)
+        else:
+            logger.info("暂无任务进度信息")
+            logger.info("=" * 30)
+
 
 def login(lol: _3alol,account: dict) -> bool:
     if cookie := read_cookie(account["username"]):
@@ -60,7 +193,7 @@ def reply_topic(lol: _3alol,topic_id: str) -> bool:
         # 提取关键信息
         title = data.get("title", "")
         posts = data.get("post_stream", {}).get("posts", [])
-        tags = data.get("tags", [])
+        tags = [tag.get("name") for tag in data.get("tags", []) ]
         posts_count = len(posts)
         # 判断：帖子数 > 5
         if posts_count <= 5:
@@ -131,6 +264,12 @@ def main():
                 continue
 
             try:
+                # 获取用户等级信息
+                user_level_task = UserLevelTask(lol, account)
+                if user_level_task.get_user_level_info():
+                    user_level_task.calculate_task_progress()
+                    user_level_task.display_user_info()
+
                 #获取最新话题
                 topics_list = lol.get_latest()
                 for topic in topics_list[:10]:
@@ -140,7 +279,7 @@ def main():
                         # 提取关键信息
                         title = data.get("title", "")
                         posts = data.get("post_stream", {}).get("posts", [])
-                        tags = data.get("tags", [])
+                        tags = [tag.get("name") for tag in data.get("tags", [])]
                         posts_count = len(posts)
 
                         logger.info(f"标题：{title[:20]}... | 帖子数：{posts_count} | 标签：{tags}")
@@ -165,7 +304,7 @@ def main():
                         logger.warning("目标话题获取帖子失败，点赞取消")
 
                     #回复
-                    if random.random() <= 0.4:
+                    if random.random() <= 0.6:
                         if reply_topic(lol, topic_id):
                             logger.success("贴子发布成功")
                         else:

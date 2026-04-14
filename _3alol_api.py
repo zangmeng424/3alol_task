@@ -29,7 +29,7 @@ class _3alol:
                 logger.debug(f"csrf:{self.csrf[:12]}...")
                 break
             except:
-                logger.error(f"csrf获取失败")
+                logger.debug(f"csrf获取失败")
                 time.sleep(1)
 
     def get_hp(self) -> dict | None:
@@ -73,7 +73,7 @@ class _3alol:
         response = self.sess.post('https://3a.lol/session', headers=headers, data=data).json()
 
         if login_error := response.get("error"):
-            logger.error(login_error)
+            logger.debug(login_error)
             return False,login_error
         else:
             return True,";".join([f"{k}={v}" for k, v in self.sess.cookies.get_dict().items()])
@@ -130,7 +130,7 @@ class _3alol:
             response = self.sess.post('https://3a.lol/post_actions',headers=headers,  data=data)
             return response.status_code
         except:
-            logger.error("点赞失败")
+            logger.debug("点赞失败")
             return None
 
     def register(self,email_address:str,username:str,password:str) -> bool:
@@ -142,7 +142,7 @@ class _3alol:
         :return:
         """
         self.get_csrf()
-        logger.info(f"注册信息：email:{email_address},username:{username},password:{password}")
+        logger.debug(f"注册信息：email:{email_address},username:{username},password:{password}")
 
         hp_json = {}
         for _ in range(3):
@@ -405,6 +405,130 @@ class _3alol:
 
         return False
 
+    def get_user_detail(self,username:str = "") -> bool | dict:
+        """
+        获取用户详细信息（包含信任级别）
+        username为空则获取当前类中已登录用户的信息
+        :param username: 用户名
+        :return:
+        """
+        if not username:
+            headers = {
+                **self.sess.headers,
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'upgrade-insecure-requests': '1',
+            }
+            response = self.sess.get(f'https://3a.lol',headers = headers)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # 使用CSS选择器
+                div = soup.find('div', id='data-preloaded')
+                if div:
+                    value = div.get('data-preloaded')
+                    try:
+                        username = json.loads(json.loads(value).get("currentUser", {})).get("username")
+                        if not username:
+                            return False
+                    except:
+                        return False
+
+        self.get_csrf()
+
+        headers = {
+            **self.sess.headers,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'discourse-logged-in': 'true',
+            'discourse-track-view': 'true',
+            'referer': f'https://3a.lol/u/{username}',
+            'x-csrf-token': self.csrf,
+        }
+
+        response = self.sess.get(f'https://3a.lol/u/{username}.json',  headers=headers)
+        if response.status_code == 200:
+            return response.json()
+
+        return False
+
+    def get_directory_data(self,username:str = "") -> bool | dict:
+        """
+        获取用户目录数据（季度统计）
+        username为空则获取当前类中已登录用户的信息
+        :param username: 用户名
+        :return:
+        """
+        if not username:
+            headers = {
+                **self.sess.headers,
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'upgrade-insecure-requests': '1',
+            }
+            response = self.sess.get(f'https://3a.lol',headers = headers)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # 使用CSS选择器
+                div = soup.find('div', id='data-preloaded')
+                if div:
+                    value = div.get('data-preloaded')
+                    try:
+                        username = json.loads(json.loads(value).get("currentUser", {})).get("username")
+                        if not username:
+                            return False
+                    except:
+                        return False
+
+        self.get_csrf()
+
+        headers = {
+            **self.sess.headers,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'discourse-logged-in': 'true',
+            'discourse-track-view': 'true',
+            'referer': f'https://3a.lol/u/{username}',
+            'x-csrf-token': self.csrf,
+        }
+
+        response = self.sess.get(f'https://3a.lol/directory_items?period=quarterly&order=days_visited&name={username}',  headers=headers)
+        if response.status_code == 200:
+            return response.json()
+
+        return False
+
+    def get_user_level_info(self, username: str = "") -> dict:
+        """
+        获取用户等级信息（综合摘要、详细信息和目录数据）
+        :param username: 用户名
+        :return: 包含所有等级信息的字典
+        """
+        summary_data = self.get_summary(username)
+        detail_data = self.get_user_detail(username)
+        directory_data = self.get_directory_data(username)
+
+        if not summary_data or not detail_data:
+            return {}
+
+        user_summary = summary_data.get("user_summary", {})
+        user = detail_data.get("user", {})
+        directory_items = directory_data.get("directory_items", []) if directory_data else []
+
+        # 获取当前用户在目录中的数据
+        directory_item = None
+        if directory_items:
+            for item in directory_items:
+                if item.get("user", {}).get("username") == username:
+                    directory_item = item
+                    break
+            if not directory_item and directory_items:
+                directory_item = directory_items[0]
+
+        return {
+            "user": user,
+            "summary": user_summary,
+            "directory": directory_item,
+            "trust_level": user.get("trust_level", 0)
+        }
+
     def read_topics_timings(self,topic_id:str,topic_time:str="60000",timings:list[int]=[1]) -> bool:
         """
         帖子阅读接口
@@ -473,6 +597,30 @@ class _3alol:
         else:
             return False
 
+    def query(self,term:str):
+        """
+        搜索
+        :param term: 搜索内容
+        :return: 结果
+        """
+        self.get_csrf()
+        headers = {
+            **self.sess.headers,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'discourse-logged-in': 'true',
+            'referer': 'https://3a.lol/',
+            'x-csrf-token': self.csrf,
+        }
+
+        params = {
+            'term': term,
+        }
+
+        response = self.sess.get('https://3a.lol/search/query', params=params, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return False
 
 
 
@@ -489,13 +637,13 @@ def read_userinfo() -> list[dict]:
                     if len(parts) == 2:
                         accounts.append({"username": parts[0].strip(), "password": parts[1].strip()})
                     else:
-                        logger.warning(f"格式错误: {line}")
+                        logger.debug(f"格式错误: {line}")
                 elif line:
-                    logger.warning(f"格式错误，应为 账号|密码: {line}")
+                    logger.debug(f"格式错误，应为 账号|密码: {line}")
     except FileNotFoundError:
-        logger.error(f"未找到 {file_path} 文件")
+        logger.debug(f"未找到 {file_path} 文件")
     except Exception as e:
-        logger.error(f"读取 {file_path} 文件失败: {str(e)}")
+        logger.debug(f"读取 {file_path} 文件失败: {str(e)}")
     return accounts
 
 
@@ -517,7 +665,7 @@ def read_cookie(username:str) -> str|bool:
         return data.get(username,False)
 
     except Exception as e:
-        logger.error(f"{username} cookie读取失败")
+        logger.debug(f"{username} cookie读取失败")
         return False
 
 def save_cookie(username:str,cookie:str) -> bool:
@@ -542,9 +690,9 @@ def save_cookie(username:str,cookie:str) -> bool:
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"{username} cookie更新成功")
+        logger.debug(f"{username} cookie更新成功")
         return True
 
     except Exception as e:
-        logger.error(f"{username} cookie更新失败")
+        logger.debug(f"{username} cookie更新失败")
         return False
