@@ -6,64 +6,8 @@ import sys
 import time
 from loguru import logger
 from _3alol_api import read_userinfo, _3alol, read_cookie, save_cookie
+from source_data import *
 
-
-# 回复模板
-REPLY_TEMPLATES = [
-    "感谢分享，已收藏！",
-    "楼主牛逼，这就去试试",
-    "666，正好想玩这个",
-    "有空玩玩",
-    "好帖帮顶！",
-    "感谢大佬分享",
-    "已入手，感谢推荐",
-    "看着不错，试试",
-    "这游戏我也在玩，确实不错",
-    "感谢分享，正好缺这个",
-]
-
-# 等级晋升条件
-LEVEL_REQUIREMENTS = {
-    0: {
-        "metrics": [
-            {"key": "topics_entered", "target": 5, "source": "summary", "label": "已读主题数"},
-            {"key": "posts_read_count", "target": 30, "source": "summary", "label": "已读帖子数"},
-            {"key": "time_read", "target": 600, "source": "summary", "label": "阅读时长(秒)"},
-        ],
-    },
-    1: {
-        "metrics": [
-            {"key": "days_visited", "target": 15, "source": "summary", "label": "访问天数"},
-            {"key": "topics_entered", "target": 20, "source": "summary", "label": "已读主题数"},
-            {"key": "posts_read_count", "target": 100, "source": "summary", "label": "已读帖子数"},
-            {"key": "time_read", "target": 3600, "source": "summary", "label": "阅读时长(秒)"},
-            {"key": "replied_topics", "target": 3, "source": "activity", "label": "回复话题数"},
-            {"key": "likes_given", "target": 1, "source": "summary", "label": "已点赞数"},
-            {"key": "likes_received", "target": 1, "source": "summary", "label": "获赞数"},
-        ],
-    },
-    2: {
-        "metrics": [
-            {"key": "days_visited", "target": 50, "source": "directory", "label": "访问天数(最近100天)"},
-            {"key": "likes_given", "target": 30, "source": "directory", "label": "已点赞数(最近100天)"},
-            {"key": "likes_received", "target": 20, "source": "directory", "label": "获赞数(最近100天)"},
-            {"key": "topics_entered", "target": 20000, "source": "summary", "label": "累计已读主题(25%)"},
-            {"key": "posts_read_count", "target": 500, "source": "summary", "label": "累计已读帖子(25%)"},
-        ],
-    },
-    3: {
-        "metrics": [
-            {"key": "days_visited", "target": 50, "source": "directory", "label": "访问天数(最近100天)"},
-            {"key": "likes_given", "target": 30, "source": "directory", "label": "已点赞数(最近100天)"},
-            {"key": "likes_received", "target": 20, "source": "directory", "label": "获赞数(最近100天)"},
-            {"key": "topics_entered", "target": 20000, "source": "summary", "label": "累计已读主题(25%)"},
-            {"key": "posts_read_count", "target": 500, "source": "summary", "label": "累计已读帖子(25%)"},
-        ],
-    },
-    4: {
-        "metrics": [],
-    },
-}
 
 class UserLevelTask:
     """用户等级信息获取和显示任务"""
@@ -110,14 +54,18 @@ class UserLevelTask:
             target = metric["target"]
             source = metric["source"]
 
+            current = 0
             # 获取当前值
             if source == "summary":
                 current = summary.get(key, 0)
             elif source == "directory":
                 current = directory.get(key, 0) if directory else 0
             elif source == "activity":
-                # 活动数据需要额外获取，这里简化处理
-                current = 0
+                # 只有一处需要这个数据，需要再调用
+                if actions_data := self.lol.get_user_actions(self.username):
+                    current = len(actions_data.get("user_actions"))
+                else:
+                    current = 0
 
             # 计算进度
             progress = f"{current}/{target}"
@@ -179,6 +127,29 @@ def login(lol: _3alol,account: dict) -> bool:
             exit(1)
         return False
 
+def gen_reply():
+    s = random.choice(START)
+    c = random.choice(CONTENT)
+    a = random.choice(ACTION)
+    e = random.choice(EXTRA)
+
+    # 随机去掉某一段（模拟真人简写）
+    parts = [s, c, a]
+
+    # 随机删2段（增强随机性）
+    for _ in range(2):
+        if random.random() < 0.5:
+            parts.pop(random.randint(0, len(parts)-1))
+
+    reply = random.choice(["，"," "]).join(parts)
+
+    if e:
+        reply += "，" + e
+
+    # 随机句尾符号
+    reply +="" if random.random() < 0.7 else random.choice(["！", "～", "。"])
+
+    return reply
 
 def reply_topic(lol: _3alol,topic_id: str) -> bool:
     """
@@ -216,15 +187,8 @@ def reply_topic(lol: _3alol,topic_id: str) -> bool:
             logger.warning("非游戏分享贴")
             return False
 
-        # 生成回复（避免与前 5 条回复重复）
-        existing = [p.get("raw", "") for p in posts[1:6]]
-        reply = random.choice(REPLY_TEMPLATES)
-
-        # 简单去重
-        for _ in range(3):
-            if not any(reply in e or e in reply for e in existing):
-                break
-            reply = random.choice(REPLY_TEMPLATES)
+        # 生成回复
+        reply = gen_reply()
 
         logger.info(f"生成回复：{reply}")
 
