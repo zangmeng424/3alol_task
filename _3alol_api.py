@@ -495,6 +495,52 @@ class _3alol:
 
         return False
 
+    def get_user_actions(self,username:str = "",filter:str = 5) -> bool | dict:
+        """
+        获取用户互动数据
+        username为空则获取当前类中已登录用户的信息
+        :param username: 用户名
+        :param filter: `1`:点赞行为  `5`:回复行为
+        :return:
+        """
+        if not username:
+            headers = {
+                **self.sess.headers,
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'upgrade-insecure-requests': '1',
+            }
+            response = self.sess.get(f'https://3a.lol',headers = headers)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # 使用CSS选择器
+                div = soup.find('div', id='data-preloaded')
+                if div:
+                    value = div.get('data-preloaded')
+                    try:
+                        username = json.loads(json.loads(value).get("currentUser", {})).get("username")
+                        if not username:
+                            return False
+                    except:
+                        return False
+
+        self.get_csrf()
+
+        headers = {
+            **self.sess.headers,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'discourse-logged-in': 'true',
+            'discourse-track-view': 'true',
+            'referer': f'https://3a.lol/u/{username}',
+            'x-csrf-token': self.csrf,
+        }
+
+        response = self.sess.get(f'https://3a.lol/user_actions.json?offset=0&username={username}&filter={filter}', headers=headers)
+        if response.status_code == 200:
+            return response.json()
+
+        return False
+
     def get_user_level_info(self, username: str = "") -> dict:
         """
         获取用户等级信息（综合摘要、详细信息和目录数据）
