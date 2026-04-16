@@ -61,8 +61,8 @@ LEVEL_REQUIREMENTS = {
             {"key": "days_visited", "target": 50, "source": "directory", "label": "访问天数(最近100天)"},
             {"key": "likes_given", "target": 30, "source": "directory", "label": "已点赞数(最近100天)"},
             {"key": "likes_received", "target": 20, "source": "directory", "label": "获赞数(最近100天)"},
-            {"key": "topics_entered", "target": 20000, "source": "summary", "label": "累计已读主题(25%)"},
-            {"key": "posts_read_count", "target": 500, "source": "summary", "label": "累计已读帖子(25%)"},
+            {"key": "topics_entered", "target": 500, "source": "summary", "label": "累计已读主题(25%)"},
+            {"key": "posts_read_count", "target": 20000, "source": "summary", "label": "累计已读帖子(25%)"},
         ],
     },
     3: {
@@ -70,8 +70,8 @@ LEVEL_REQUIREMENTS = {
             {"key": "days_visited", "target": 50, "source": "directory", "label": "访问天数(最近100天)"},
             {"key": "likes_given", "target": 30, "source": "directory", "label": "已点赞数(最近100天)"},
             {"key": "likes_received", "target": 20, "source": "directory", "label": "获赞数(最近100天)"},
-            {"key": "topics_entered", "target": 20000, "source": "summary", "label": "累计已读主题(25%)"},
-            {"key": "posts_read_count", "target": 500, "source": "summary", "label": "累计已读帖子(25%)"},
+            {"key": "topics_entered", "target": 500, "source": "summary", "label": "累计已读主题(25%)"},
+            {"key": "posts_read_count", "target": 20000, "source": "summary", "label": "累计已读帖子(25%)"},
         ],
     },
     4: {
