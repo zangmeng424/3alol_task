@@ -5,6 +5,7 @@ import random
 import sys
 import time
 from loguru import logger
+from wcwidth import wcswidth
 from _3alol_api import read_userinfo, _3alol, read_cookie, save_cookie
 from source_data import *
 
@@ -92,12 +93,17 @@ class UserLevelTask:
             # 获取所有任务的标签和进度
             tasks = list(self.completed_tasks.items())
 
-            # 使用固定宽度确保对齐
-            label_width = 13  # 标签列固定宽度
+            def align_text(text, width):
+                display_width = wcswidth(text)  # 实际显示宽度
+                padding = width - display_width
+                if padding > 0:
+                    return text + " " * padding
+                return text
 
-            # 打印表格
+            label_width = 18  # 显示宽度
+
             for label, progress in tasks:
-                logger.info(f"{label:<{label_width}} | {progress}")
+                logger.info(f"{align_text(label, label_width)} | {progress}")
             logger.info("=" * 30)
         else:
             logger.info("暂无任务进度信息")
