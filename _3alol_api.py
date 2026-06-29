@@ -340,6 +340,7 @@ class _3alol:
         """
         #["post_stream"]["posts"]下为回复帖子，
         #["title"]话题标题
+        #["category_id"]所属分区id
         headers = {
             **self.sess.headers,
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',

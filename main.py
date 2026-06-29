@@ -169,8 +169,8 @@ def reply_topic(lol: _3alol,topic_id: str) -> bool:
 
         # 提取关键信息
         title = data.get("title", "")
+        category_id = data.get("category_id", None)
         posts = data.get("post_stream", {}).get("posts", [])
-        tags = [tag.get("name") for tag in data.get("tags", []) ]
         posts_count = len(posts)
         # 判断：帖子数 > 5
         if posts_count <= 5:
@@ -182,12 +182,7 @@ def reply_topic(lol: _3alol,topic_id: str) -> bool:
             return False
 
         # 判断：是否为游戏分享
-        text = title + " " + " ".join(tags)
-        is_game = any(k in text for k in ["游戏分享", "单机游戏"]) and (
-                any(k in text for k in ["游戏", "steam", "Steam", "单机"]) or
-                ("【" in title and "】" in title) or
-                any(k in text.lower() for k in ["game", "dlc", "mod"])
-        )
+        is_game = ("【" in title and "】" in title) and (category_id == 5)# 检测标题格式中括号 属于游戏分享区（id为5）
 
         if not is_game:
             logger.warning("非游戏分享贴")
@@ -197,8 +192,6 @@ def reply_topic(lol: _3alol,topic_id: str) -> bool:
         reply = gen_reply()
 
         logger.info(f"生成回复：{reply}")
-
-        lol.get_categories()
 
         result = lol.post(
             title="",
@@ -245,14 +238,17 @@ def main():
                 for topic in topics_list[:10]:
                     topic_id = topic["id"]
                     data = lol.get_posts(topic_id)
+                    categories_list = lol.get_categories()
+
                     if data:
                         # 提取关键信息
                         title = data.get("title", "")
+                        category_id = data.get("category_id", None)
                         posts = data.get("post_stream", {}).get("posts", [])
                         tags = [tag.get("name") for tag in data.get("tags", [])]
                         posts_count = len(posts)
 
-                        logger.info(f"标题：{title[:20]}... | 帖子数：{posts_count} | 标签：{tags}")
+                        logger.info(f"标题：{title[:20]}... | 分区：{[categories["name"] for categories in categories_list if categories["id"] == category_id][0]} | 帖子数：{posts_count} | 标签：{tags}")
 
                     logger.info(f"{topic_id} 开始阅读")
 
