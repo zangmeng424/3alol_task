@@ -247,8 +247,9 @@ def main():
                         posts = data.get("post_stream", {}).get("posts", [])
                         tags = [tag.get("name") for tag in data.get("tags", [])]
                         posts_count = len(posts)
+                        category = [categories["name"] for categories in categories_list if categories["id"] == category_id][0]
 
-                        logger.info(f"标题：{title[:20]}... | 分区：{[categories["name"] for categories in categories_list if categories["id"] == category_id][0]} | 帖子数：{posts_count} | 标签：{tags}")
+                        logger.info(f"标题：{title[:20]}... | 分区：{category} | 帖子数：{posts_count} | 标签：{tags}")
 
                     logger.info(f"{topic_id} 开始阅读")
 
