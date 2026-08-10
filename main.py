@@ -247,7 +247,8 @@ def main():
                         posts = data.get("post_stream", {}).get("posts", [])
                         tags = [tag.get("name") for tag in data.get("tags", [])]
                         posts_count = len(posts)
-                        category = [categories["name"] for categories in categories_list if categories["id"] == category_id][0]
+                        if category_name_list := [categories["name"] for categories in categories_list if categories["id"] == category_id]:
+                            category = category_name_list[0]
 
                         logger.info(f"标题：{title[:20]}... | 分区：{category} | 帖子数：{posts_count} | 标签：{tags}")
 
@@ -282,7 +283,7 @@ def main():
                 break
 
             except Exception as e:
-                logger.error(f"任务失败{e}")
+                logger.exception(f"任务失败{e}")
 
 
 

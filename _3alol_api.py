@@ -15,7 +15,7 @@ class _3alol:
             'accept': 'application/json, text/javascript, */*; q=0.01',
             'referer': 'https://3a.lol',
             'discourse-present': 'true',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/511.36',
             'x-requested-with': 'XMLHttpRequest',
         })
         self.csrf = ""
@@ -343,21 +343,12 @@ class _3alol:
         #["category_id"]所属分区id
         headers = {
             **self.sess.headers,
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'upgrade-insecure-requests': '1',
+            'accept': 'application/json, text/javascript, */*; q=0.01'
         }
 
-        response = self.sess.get(f'https://3a.lol/t/topic/{topic_id}', headers=headers)
+        response = self.sess.get(f'https://3a.lol/t/{topic_id}.json?track_visit=true&forceLoad=true', headers=headers)
         if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            # 使用CSS选择器
-            div = soup.find('div', id='data-preloaded')
-            if div:
-                value = div.get('data-preloaded')
-                info=json.loads(value)[f"topic_{topic_id}"]
-                logger.debug(info)
-                return json.loads(info)
+            return response.json()
 
         return False
 
