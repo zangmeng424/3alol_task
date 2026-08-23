@@ -370,9 +370,9 @@ class _3alol:
                 soup = BeautifulSoup(response.text, 'html.parser')
 
                 # 使用CSS选择器
-                div = soup.find('div', id='data-preloaded')
+                div = soup.find('script', id='data-preloaded')
                 if div:
-                    value = div.get('data-preloaded')
+                    value = div.text
                     try:
                         username = json.loads(json.loads(value).get("currentUser", {})).get("username")
                         if not username:
