@@ -218,15 +218,23 @@ def main():
 
     logger.info(f"共读取到 {len(accounts)} 个账号")
     for i, account in enumerate(accounts, 1):
+        success = False
         for try_number in range(3):#重试次数
             logger.info(f"========== 正在处理第 {i}/{len(accounts)} 个账号 重试 {try_number + 1}/3 ==========")
-            lol = _3alol()
-
-            #登录
-            if not login(lol, account):
-                continue
+            if try_number:
+                # 上一次失败多半是被限流（429），退避等待后再重试
+                wait = random.uniform(20, 40) * try_number
+                logger.warning(f"{account['username']} 等待 {wait:.0f}s 后重试")
+                time.sleep(wait)
 
             try:
+                lol = _3alol()
+
+                #登录
+                if not login(lol, account):
+                    logger.error(f"{account['username']} 第 {try_number + 1} 次登录失败")
+                    continue
+
                 # 获取用户等级信息
                 user_level_task = UserLevelTask(lol, account)
                 if user_level_task.get_user_level_info():
@@ -235,7 +243,11 @@ def main():
 
                 #获取最新话题
                 topics_list = lol.get_latest()
+                if not topics_list:
+                    logger.warning("获取最新话题失败")
+                    continue
                 for topic in topics_list[:10]:
+                    category = "未知"
                     topic_id = topic["id"]
                     data = lol.get_posts(topic_id)
                     categories_list = lol.get_categories()
@@ -279,11 +291,16 @@ def main():
                             logger.error("贴子发布失败")
 
 
+                success = True
                 # 跳过重试
                 break
 
             except Exception as e:
-                logger.exception(f"任务失败{e}")
+                # 单次执行出现异常（含 429 限流导致拿不到页面元素）时不中断整体流程
+                logger.warning(f"{account['username']} 第 {try_number + 1} 次执行失败（疑似被限流 429）: {e}")
+
+        if not success:
+            logger.error(f"{account['username']} 连续重试失败，跳过该账号")
 
 
 

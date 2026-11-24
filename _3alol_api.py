@@ -7,9 +7,20 @@ from bs4 import BeautifulSoup
 from loguru import logger
 
 
+class TimeoutSession(requests.Session):
+    def __init__(self, timeout=10):
+        super().__init__()
+        self.timeout = timeout
+
+    def request(self, *args, **kwargs):
+        kwargs.setdefault("timeout", self.timeout)
+        return super().request(*args, **kwargs)
+
+
 class _3alol:
     def __init__(self):
         self.sess=requests.session()
+        self.sess = TimeoutSession(timeout=3)
         self.sess.headers.update(
         {
             'accept': 'application/json, text/javascript, */*; q=0.01',
